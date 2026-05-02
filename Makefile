@@ -14,3 +14,7 @@ COPTS=-ggdb \
 
 smoldrm_test: smoldrm_test.c smoldrm.h
 	$(CC) $(COPTS) -o $@ $<
+
+.PHONY: clean
+clean:
+	rm -rf smoldrm_test
