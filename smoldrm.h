@@ -9,11 +9,16 @@
 #define SMOLDRM_CAST_TO_DRM_PTR(_p) ((uint64_t) _p)
 #define SMOLDRM_U32_AT_INDEX(_list, _index) (((uint32_t *) SMOLDRM_CAST_FROM_DRM_PTR(_list))[_index])
 
-#define smoldrm_foreach_u32(_list, _count, _val) \
-	for (int __i = 0, _val = SMOLDRM_U32_AT_INDEX(_list, 0); __i < _count; __i++, _val = SMOLDRM_U32_AT_INDEX(_list, __i))
+#define smoldrm_foreach_u32(_indx, _list, _count, _val)			\
+	for (_indx = 0, _val = SMOLDRM_U32_AT_INDEX(_list, 0);		\
+	     _indx < _count;						\
+	     _indx++, _val = SMOLDRM_U32_AT_INDEX(_list, _indx))
 
-#define smoldrm_foreach_res_conn(__res, __val) \
-		smoldrm_foreach_u32((__res)->connector_id_ptr, (__res)->count_connectors, __val)
+#define smoldrm_foreach_res_conn(__index, __res, __val) \
+		smoldrm_foreach_u32(__index, (__res)->connector_id_ptr, (__res)->count_connectors, __val)
+
+#define smoldrm_foreach_conn_enc(__index, __conn, __val) \
+		smoldrm_foreach_u32(__index, (__conn)->encoders_ptr, (__conn)->count_encoders, __val)
 
 static int smoldrm_open(const char *card)
 {
@@ -105,6 +110,8 @@ static int smoldrm_getresources(int card, struct drm_mode_card_res *res)
 	return 0;
 }
 
+/* Connector stuff */
+
 static void smoldrm_freeconnector(struct drm_mode_get_connector *conn)
 {
 	free(SMOLDRM_CAST_FROM_DRM_PTR(conn->modes_ptr));
@@ -166,6 +173,26 @@ static int smoldrm_getconnector(int card,
 	}
 
 	return 0;
+}
+
+static bool smoldrm_connectorisusable(struct drm_mode_get_connector *conn)
+{
+	if (conn->connection && conn->count_modes)
+		return true;
+
+	return false;
+}
+
+/* Encoder stuff */
+
+static int smoldrm_getencoder(int card, uint32_t encoder_id, struct drm_mode_get_encoder *encoder)
+{
+	int ret;
+
+	encoder->encoder_id = encoder_id;
+	ret = ioctl(card, DRM_IOCTL_MODE_GETENCODER, encoder);
+
+	return ret;
 }
 
 #endif /* _SMOLDRM_H */
