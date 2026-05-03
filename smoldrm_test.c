@@ -84,7 +84,7 @@ int main(int argc, char **argv, char **envp)
 
 	getchar();
 
-	close(card);
+	smoldrm_close(card);
 
 	return 0;
 }

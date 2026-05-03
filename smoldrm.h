@@ -55,6 +55,16 @@ static int smoldrm_open(const char *card)
 	return fd;
 }
 
+static int smoldrm_close(int card)
+{
+	int ret;
+
+	ret = ioctl(card, DRM_IOCTL_DROP_MASTER, NULL);
+	close(card);
+
+	return ret;
+}
+
 static void smoldrm_freeresources(struct drm_mode_card_res *res)
 {
 	free(SMOLDRM_CAST_FROM_DRM_PTR(res->connector_id_ptr));
