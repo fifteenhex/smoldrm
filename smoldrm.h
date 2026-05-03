@@ -345,8 +345,8 @@ static int smoldrm_mmapdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 }
 
 static int smoldrm_attachdumbbuffertocrtc(struct smoldrm_dumbbuffer *buffer,
-					  uint32_t crtc_id,
 					  uint32_t conn_id,
+					  uint32_t crtc_id,
 					  struct drm_mode_modeinfo *mode)
 {
 	uint32_t connectors[] = { conn_id };
@@ -362,15 +362,28 @@ static int smoldrm_attachdumbbuffertocrtc(struct smoldrm_dumbbuffer *buffer,
 	memcpy(&crtc.mode, mode, sizeof(crtc.mode));
 
 	ret = ioctl(buffer->card, DRM_IOCTL_MODE_SETCRTC, &crtc);
+	if (ret)
+		return ret;
 
-	return ret;
+	buffer->crtc_id = crtc_id;
+
+	return 0;
 }
 
-static int smoldrm_dumbbuffer_simple(int card, struct smoldrm_dumbbuffer *buffer)
+static int smoldrm_dumbbuffer_simple(int card,
+				     struct drm_mode_modeinfo *modeinfo,
+				     struct smoldrm_dumbbuffer *buffer)
 {
+	uint16_t width, height;
 	int ret;
 
-	ret = smoldrm_createdumbbuffer(card, 1920, 1200, 32, buffer);
+	width = modeinfo->hdisplay;
+	height = modeinfo->vdisplay;
+
+	printf("Creating %d x %d buffer, framebuffer and mapping it\n",
+	       width, height);
+
+	ret = smoldrm_createdumbbuffer(card, width, height, 32, buffer);
 	if (ret) {
 		printf("Failed to create buffer: %d %d\n", ret, errno);
 		return ret;

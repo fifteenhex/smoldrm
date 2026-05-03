@@ -8,7 +8,7 @@ int main(int argc, char **argv, char **envp)
 	uint32_t conn_id, encoder_id, crtc_id;
 	int i, j, k;
 	bool goteverything = false;
-
+	struct drm_mode_modeinfo mode = { };
 
 	ret = smoldrm_open(NULL);
 	if (ret < 0) {
@@ -36,7 +36,12 @@ int main(int argc, char **argv, char **envp)
 			struct drm_mode_modeinfo *modeinfo;
 
 			smoldrm_foreach_conn_mode(j, &conn, modeinfo) {
-				printf("mode: %d x %d\n", (unsigned int) modeinfo->hdisplay, (unsigned int) modeinfo->vdisplay);
+				printf("mode: %d x %d\n", (unsigned int) modeinfo->hdisplay,
+							  (unsigned int) modeinfo->vdisplay);
+
+				/* Just use the first mode for now */
+				memcpy(&mode, modeinfo, sizeof(mode));
+				break;
 			}
 
 			smoldrm_foreach_conn_enc(j, &conn, encoder_id) {
@@ -61,13 +66,25 @@ int main(int argc, char **argv, char **envp)
 	}
 
 	struct smoldrm_dumbbuffer __smoldrm_cleanup_dumbbuffer buffer = { 0 };
-	ret = smoldrm_dumbbuffer_simple(card, &buffer);
+	ret = smoldrm_dumbbuffer_simple(card, &mode, &buffer);
 	if (ret) {
 		printf("Buffer setup failed\n");
 		return 1;
 	}
 
 	memset(buffer.mapped, 0xff, SMOLDRM_DUMBUFFER_SZ(&buffer));
+
+	printf("crtcid 0x%08x\n", (unsigned int) crtc_id);
+
+	ret = smoldrm_attachdumbbuffertocrtc(&buffer, conn_id, crtc_id, &mode);
+	if (ret) {
+		printf("Failed to attach\n");
+		return 1;
+	}
+
+	getchar();
+
+	close(card);
 
 	return 0;
 }
