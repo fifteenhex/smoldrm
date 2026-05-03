@@ -31,6 +31,12 @@ int main(int argc, char **argv, char **envp)
 			continue;
 
 		if (smoldrm_connectorisusable(&conn)) {
+			struct drm_mode_modeinfo *modeinfo;
+
+			smoldrm_foreach_conn_mode(j, &conn, modeinfo) {
+				printf("mode: %d x %d\n", (unsigned int) modeinfo->hdisplay, (unsigned int) modeinfo->vdisplay);
+			}
+
 			smoldrm_foreach_conn_enc(j, &conn, encoder_id) {
 				struct drm_mode_get_encoder encoder = { 0 };
 
@@ -50,15 +56,21 @@ int main(int argc, char **argv, char **envp)
 	}
 
 	struct smoldrm_dumbbuffer __smoldrm_cleanup_dumbbuffer buffer = { 0 };
-	ret = smoldrm_createdumbbuffer(card, 1024, 768, 32, &buffer);
+	ret = smoldrm_createdumbbuffer(card, 1920, 1200, 32, &buffer);
 	if (ret) {
-		printf("Failed to create buffer: %d\n", ret);
+		printf("Failed to create buffer: %d %d\n", ret, errno);
 		return 1;
 	}
 
 	ret = smoldrm_addfbdumbbuffer(&buffer);
 	if (ret) {
 		printf("Failed to add framebuffer: %d\n", ret);
+		return 1;
+	}
+
+	ret = smoldrm_mmapdumbbuffer(&buffer);
+	if (ret) {
+		printf("Failed to mmap buffer\n");
 		return 1;
 	}
 

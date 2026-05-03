@@ -23,6 +23,16 @@
 #define smoldrm_foreach_conn_enc(__index, __conn, __val) \
 		smoldrm_foreach_u32(__index, (__conn)->encoders_ptr, (__conn)->count_encoders, __val)
 
+#define SMOLDRM_MODEINFO_AT_INDEX(_list, _index) (((struct drm_mode_modeinfo *) SMOLDRM_CAST_FROM_DRM_PTR(_list))[_index])
+
+#define smoldrm_foreach_modeinfo(_indx, _list, _count, _val)		\
+	for (_indx = 0, _val = &SMOLDRM_MODEINFO_AT_INDEX(_list, 0);	\
+	     _indx < _count;						\
+	     _indx++, _val = &SMOLDRM_MODEINFO_AT_INDEX(_list, _indx))
+
+#define smoldrm_foreach_conn_mode(__index, __conn, __val) \
+		smoldrm_foreach_modeinfo(__index, (__conn)->modes_ptr, (__conn)->count_modes, __val)
+
 static int smoldrm_open(const char *card)
 {
 	int fd, ret;
@@ -237,6 +247,9 @@ static int smoldrm_rmfbdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 
 static void smoldrm_cleanupdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 {
+	if (buffer->mapped)
+		munmap(buffer->mapped, buffer->dmcb.size);
+
 	if (buffer->fbid)
 		smoldrm_rmfbdumbbuffer(buffer);
 
@@ -257,7 +270,7 @@ static int smoldrm_createdumbbuffer(int card,
 	buffer->dmcb.height = height;
 	buffer->dmcb.bpp = bpp;
 
-	ret = ioctl(card, DRM_IOCTL_MODE_CREATE_DUMB, buffer);
+	ret = ioctl(card, DRM_IOCTL_MODE_CREATE_DUMB, &buffer->dmcb);
 	if (ret)
 		return ret;
 
