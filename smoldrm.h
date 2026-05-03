@@ -17,6 +17,9 @@
 #define smoldrm_foreach_res_conn(__index, __res, __val) \
 		smoldrm_foreach_u32(__index, (__res)->connector_id_ptr, (__res)->count_connectors, __val)
 
+#define smoldrm_foreach_res_crt(__index, __res, __val) \
+		smoldrm_foreach_u32(__index, (__res)->crtc_id_ptr, (__res)->count_crtcs, __val)
+
 #define smoldrm_foreach_conn_enc(__index, __conn, __val) \
 		smoldrm_foreach_u32(__index, (__conn)->encoders_ptr, (__conn)->count_encoders, __val)
 
@@ -193,6 +196,119 @@ static int smoldrm_getencoder(int card, uint32_t encoder_id, struct drm_mode_get
 	ret = ioctl(card, DRM_IOCTL_MODE_GETENCODER, encoder);
 
 	return ret;
+}
+
+static bool smoldrm_iscrtcpossibleforencoder(struct drm_mode_get_encoder *encoder,
+					     unsigned int crtc_index)
+{
+	if (encoder->possible_crtcs & (1u << crtc_index))
+		return true;
+
+	return false;
+}
+
+/* Buffer stuff */
+
+struct smoldrm_dumbbuffer {
+	int card;
+	struct drm_mode_create_dumb dmcb;
+	uint32_t fbid;
+	void *mapped;
+};
+
+static int smoldrm_destroydumbbuffer(struct smoldrm_dumbbuffer *buffer)
+{
+	struct drm_mode_destroy_dumb destroydumb = {
+		.handle = buffer->dmcb.handle,
+	};
+	int ret;
+
+	ret = ioctl(buffer->card, DRM_IOCTL_MODE_DESTROY_DUMB, &destroydumb);
+
+	return ret;
+}
+
+static int smoldrm_rmfbdumbbuffer(struct smoldrm_dumbbuffer *buffer)
+{
+	int ret;
+
+	ret = ioctl(buffer->card, DRM_IOCTL_MODE_RMFB, &buffer->fbid);
+}
+
+static void smoldrm_cleanupdumbbuffer(struct smoldrm_dumbbuffer *buffer)
+{
+	if (buffer->fbid)
+		smoldrm_rmfbdumbbuffer(buffer);
+
+	smoldrm_destroydumbbuffer(buffer);
+}
+
+#define __smoldrm_cleanup_dumbbuffer __attribute__((cleanup(smoldrm_cleanupdumbbuffer)))
+
+static int smoldrm_createdumbbuffer(int card,
+				    uint16_t width,
+				    uint16_t height,
+				    uint8_t bpp,
+				    struct smoldrm_dumbbuffer *buffer)
+{
+	int ret;
+
+	buffer->dmcb.width = width;
+	buffer->dmcb.height = height;
+	buffer->dmcb.bpp = bpp;
+
+	ret = ioctl(card, DRM_IOCTL_MODE_CREATE_DUMB, buffer);
+	if (ret)
+		return ret;
+
+	buffer->card = card;
+
+	return 0;
+}
+
+static int smoldrm_addfbdumbbuffer(struct smoldrm_dumbbuffer *buffer)
+{
+	struct drm_mode_fb_cmd fbcmd = {
+		.width  = buffer->dmcb.width,
+		.height = buffer->dmcb.height,
+		.pitch  = buffer->dmcb.pitch,
+		.bpp    = buffer->dmcb.bpp,
+		.depth  = 24, /* FIXME ! */
+		.handle = buffer->dmcb.handle,
+	};
+	int ret;
+
+	ret = ioctl(buffer->card, DRM_IOCTL_MODE_ADDFB, &fbcmd);
+	if (ret)
+		return ret;
+
+	buffer->fbid = fbcmd.fb_id;
+
+	return 0;
+}
+
+static int smoldrm_mmapdumbbuffer(struct smoldrm_dumbbuffer *buffer)
+{
+	struct drm_mode_map_dumb mapdumb = {
+		.handle = buffer->dmcb.handle,
+	};
+	void *mapped;
+	int ret;
+
+	ret = ioctl(buffer->card, DRM_IOCTL_MODE_MAP_DUMB, &mapdumb);
+	if (ret)
+		return ret;
+
+	mapped = mmap(NULL, (size_t)buffer->dmcb.size,
+		      PROT_READ | PROT_WRITE, MAP_SHARED,
+                      buffer->card, (off_t)mapdumb.offset);
+
+	if (mapped == MAP_FAILED)
+		return -ENOMEM;
+
+	buffer->mapped = mapped;
+
+	return 0;
 }
 
 #endif /* _SMOLDRM_H */

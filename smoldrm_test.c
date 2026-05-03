@@ -5,8 +5,8 @@ int main(int argc, char **argv, char **envp)
 	struct drm_mode_card_res __smoldrm_cleanup_resources res = { 0 };
 	int card;
 	int ret;
-	uint32_t conn_id, encoder_id;
-	int i, j;
+	uint32_t conn_id, encoder_id, crtc_id;
+	int i, j, k;
 
 	ret = smoldrm_open(NULL);
 	if (ret < 0) {
@@ -32,9 +32,34 @@ int main(int argc, char **argv, char **envp)
 
 		if (smoldrm_connectorisusable(&conn)) {
 			smoldrm_foreach_conn_enc(j, &conn, encoder_id) {
+				struct drm_mode_get_encoder encoder = { 0 };
+
+				ret = smoldrm_getencoder(card, encoder_id, &encoder);
+				if (ret)
+					continue;
+
 				printf("encoder 0x%08x\n", encoder_id);
+
+				smoldrm_foreach_res_crt(k, &res, crtc_id) {
+					if (smoldrm_iscrtcpossibleforencoder(&encoder, k)) {
+						printf("crtc 0x%08x is possible\n", crtc_id);
+					}
+				}
 			}
 		}
+	}
+
+	struct smoldrm_dumbbuffer __smoldrm_cleanup_dumbbuffer buffer = { 0 };
+	ret = smoldrm_createdumbbuffer(card, 1024, 768, 32, &buffer);
+	if (ret) {
+		printf("Failed to create buffer: %d\n", ret);
+		return 1;
+	}
+
+	ret = smoldrm_addfbdumbbuffer(&buffer);
+	if (ret) {
+		printf("Failed to add framebuffer: %d\n", ret);
+		return 1;
 	}
 
 	return 0;
