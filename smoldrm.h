@@ -5,6 +5,8 @@
 
 #include <drm/drm.h>
 
+#define SMOLDRM_ARRAYSZ(_a) (sizeof(_a) / sizeof(_a[0]))
+
 #define SMOLDRM_CAST_FROM_DRM_PTR(_p) ((void *)((uintptr_t) _p))
 #define SMOLDRM_CAST_TO_DRM_PTR(_p) ((uint64_t) _p)
 #define SMOLDRM_U32_AT_INDEX(_list, _index) (((uint32_t *) SMOLDRM_CAST_FROM_DRM_PTR(_list))[_index])
@@ -224,7 +226,22 @@ struct smoldrm_dumbbuffer {
 	struct drm_mode_create_dumb dmcb;
 	uint32_t fbid;
 	void *mapped;
+	uint32_t crtc_id;
 };
+
+#define SMOLDRM_DUMBUFFER_SZ(_db) ((size_t) (_db)->dmcb.size)
+
+static int smoldrm_resetcrtc(int card, uint32_t crtc_id)
+{
+	struct drm_mode_crtc crtc = {
+		.crtc_id = crtc_id,
+	};
+	int ret;
+
+	ret = ioctl(card, DRM_IOCTL_MODE_SETCRTC, &crtc);
+
+	return ret;
+}
 
 static int smoldrm_destroydumbbuffer(struct smoldrm_dumbbuffer *buffer)
 {
@@ -247,6 +264,9 @@ static int smoldrm_rmfbdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 
 static void smoldrm_cleanupdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 {
+	if (buffer->crtc_id)
+		smoldrm_resetcrtc(buffer->card, buffer->crtc_id);
+
 	if (buffer->mapped)
 		munmap(buffer->mapped, buffer->dmcb.size);
 
@@ -312,7 +332,7 @@ static int smoldrm_mmapdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 	if (ret)
 		return ret;
 
-	mapped = mmap(NULL, (size_t)buffer->dmcb.size,
+	mapped = mmap(NULL, SMOLDRM_DUMBUFFER_SZ(buffer),
 		      PROT_READ | PROT_WRITE, MAP_SHARED,
                       buffer->card, (off_t)mapdumb.offset);
 
@@ -320,6 +340,78 @@ static int smoldrm_mmapdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 		return -ENOMEM;
 
 	buffer->mapped = mapped;
+
+	return 0;
+}
+
+static int smoldrm_attachdumbbuffertocrtc(struct smoldrm_dumbbuffer *buffer,
+					  uint32_t crtc_id,
+					  uint32_t conn_id,
+					  struct drm_mode_modeinfo *mode)
+{
+	uint32_t connectors[] = { conn_id };
+	struct drm_mode_crtc crtc = {
+		.crtc_id = crtc_id,
+		.fb_id = buffer->fbid,
+		.set_connectors_ptr = (uintptr_t)connectors,
+		.count_connectors = SMOLDRM_ARRAYSZ(connectors),
+		.mode_valid = 1,
+	};
+	int ret;
+
+	memcpy(&crtc.mode, mode, sizeof(crtc.mode));
+
+	ret = ioctl(buffer->card, DRM_IOCTL_MODE_SETCRTC, &crtc);
+
+	return ret;
+}
+
+static int smoldrm_dumbbuffer_simple(int card, struct smoldrm_dumbbuffer *buffer)
+{
+	int ret;
+
+	ret = smoldrm_createdumbbuffer(card, 1920, 1200, 32, buffer);
+	if (ret) {
+		printf("Failed to create buffer: %d %d\n", ret, errno);
+		return ret;
+        }
+
+	ret = smoldrm_addfbdumbbuffer(buffer);
+	if (ret) {
+		printf("Failed to add framebuffer: %d\n", ret);
+		return ret;
+	}
+
+	ret = smoldrm_mmapdumbbuffer(buffer);
+	if (ret) {
+		printf("Failed to mmap buffer\n");
+		return ret;
+	}
+
+	return 0;
+}
+/* CRTC stuff */
+
+static int smoldrm_getcrtcforencoder(int card,
+				     struct drm_mode_card_res *res,
+				     uint32_t encoder_id,
+				     uint32_t *crtc_id)
+{
+	struct drm_mode_get_encoder encoder = { 0 };
+	uint32_t _crtc_id;
+	int ret, i;
+
+	ret = smoldrm_getencoder(card, encoder_id, &encoder);
+	if (ret)
+		return ret;
+
+	smoldrm_foreach_res_crt(i, res, _crtc_id) {
+		if (smoldrm_iscrtcpossibleforencoder(&encoder, i)) {
+			printf("crtc 0x%08x is possible\n", _crtc_id);
+			*crtc_id = _crtc_id;
+			return 1;
+		}
+	}
 
 	return 0;
 }

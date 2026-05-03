@@ -7,6 +7,8 @@ int main(int argc, char **argv, char **envp)
 	int ret;
 	uint32_t conn_id, encoder_id, crtc_id;
 	int i, j, k;
+	bool goteverything = false;
+
 
 	ret = smoldrm_open(NULL);
 	if (ret < 0) {
@@ -38,41 +40,34 @@ int main(int argc, char **argv, char **envp)
 			}
 
 			smoldrm_foreach_conn_enc(j, &conn, encoder_id) {
-				struct drm_mode_get_encoder encoder = { 0 };
-
-				ret = smoldrm_getencoder(card, encoder_id, &encoder);
-				if (ret)
-					continue;
-
-				printf("encoder 0x%08x\n", encoder_id);
-
-				smoldrm_foreach_res_crt(k, &res, crtc_id) {
-					if (smoldrm_iscrtcpossibleforencoder(&encoder, k)) {
-						printf("crtc 0x%08x is possible\n", crtc_id);
-					}
+				ret = smoldrm_getcrtcforencoder(card, &res, encoder_id, &crtc_id);
+				if (ret < 0) {
+					return 1;
+				}
+				if (ret) {
+					goteverything = true;
+					break;
 				}
 			}
 		}
+
+		if (goteverything)
+			break;
+	}
+
+	if (!goteverything) {
+		printf("Couldn't find usable conn, encoder, crtc\n");
+		return 1;
 	}
 
 	struct smoldrm_dumbbuffer __smoldrm_cleanup_dumbbuffer buffer = { 0 };
-	ret = smoldrm_createdumbbuffer(card, 1920, 1200, 32, &buffer);
+	ret = smoldrm_dumbbuffer_simple(card, &buffer);
 	if (ret) {
-		printf("Failed to create buffer: %d %d\n", ret, errno);
+		printf("Buffer setup failed\n");
 		return 1;
 	}
 
-	ret = smoldrm_addfbdumbbuffer(&buffer);
-	if (ret) {
-		printf("Failed to add framebuffer: %d\n", ret);
-		return 1;
-	}
-
-	ret = smoldrm_mmapdumbbuffer(&buffer);
-	if (ret) {
-		printf("Failed to mmap buffer\n");
-		return 1;
-	}
+	memset(buffer.mapped, 0xff, SMOLDRM_DUMBUFFER_SZ(&buffer));
 
 	return 0;
 }
