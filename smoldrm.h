@@ -239,7 +239,9 @@ struct smoldrm_dumbbuffer {
 	uint32_t crtc_id;
 };
 
-#define SMOLDRM_DUMBUFFER_SZ(_db) ((size_t) (_db)->dmcb.size)
+#define SMOLDRM_DUMBBUFFER_SZ(_db) ((size_t) (_db)->dmcb.size)
+#define SMOLDRM_DUMBBUFFER_PITCH(_db) ((_db)->dmcb.pitch)
+#define SMOLDRM_DUMBBUFFER_STRIDE(_db) ((_db)->dmcb.bpp / 8)
 
 static int smoldrm_resetcrtc(int card, uint32_t crtc_id)
 {
@@ -342,7 +344,7 @@ static int smoldrm_mmapdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 	if (ret)
 		return ret;
 
-	mapped = mmap(NULL, SMOLDRM_DUMBUFFER_SZ(buffer),
+	mapped = mmap(NULL, SMOLDRM_DUMBBUFFER_SZ(buffer),
 		      PROT_READ | PROT_WRITE, MAP_SHARED,
                       buffer->card, (off_t)mapdumb.offset);
 

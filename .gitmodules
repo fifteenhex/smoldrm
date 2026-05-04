@@ -1,0 +1,3 @@
+[submodule "small3dlib"]
+	path = small3dlib
+	url = https://github.com/fifteenhex/small3dlib.git
