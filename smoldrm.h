@@ -415,6 +415,7 @@ static int smoldrm_dumbbuffer_simple(int card,
 
 	return 0;
 }
+
 /* CRTC stuff */
 
 static int smoldrm_getcrtcforencoder(int card,
@@ -439,6 +440,34 @@ static int smoldrm_getcrtcforencoder(int card,
 	}
 
 	return 0;
+}
+
+/* Sync stuff */
+
+static int smoldrm_waitforvblank(int card)
+{
+	union drm_wait_vblank vblank = {
+		.request.type = _DRM_VBLANK_RELATIVE,
+		.request.sequence = 1,
+	};
+	int ret;
+
+	ret = ioctl(card, DRM_IOCTL_WAIT_VBLANK, &vblank);
+
+	return ret;
+}
+
+static int smoldrm_pageflip(int card, uint32_t crtc_id, uint32_t fb_id)
+{
+	struct drm_mode_crtc_page_flip pageflip = {
+		.crtc_id = crtc_id,
+		.fb_id = fb_id,
+	};
+	int ret;
+
+	ret = ioctl(card, DRM_IOCTL_MODE_PAGE_FLIP, &pageflip);
+
+	return ret;
 }
 
 #endif /* _SMOLDRM_H */

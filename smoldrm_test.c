@@ -63,7 +63,12 @@ static void draw_frame(struct small3dlib_data *s3dlib_data)
 
 int main(int argc, char **argv, char **envp)
 {
-	struct smoldrm_dumbbuffer __smoldrm_cleanup_dumbbuffer buffer = { 0 };
+	struct smoldrm_dumbbuffer __smoldrm_cleanup_dumbbuffer buffer0 = { 0 };
+	struct smoldrm_dumbbuffer __smoldrm_cleanup_dumbbuffer buffer1 = { 0 };
+	struct smoldrm_dumbbuffer *buffers[] = {
+		&buffer0,
+		&buffer1,
+	};
 	struct drm_mode_card_res __smoldrm_cleanup_resources res = { 0 };
 	int card;
 	int ret;
@@ -128,28 +133,41 @@ int main(int argc, char **argv, char **envp)
 		return 1;
 	}
 
-	ret = smoldrm_dumbbuffer_simple(card, &mode, &buffer);
+	init_small3dlib(&s3dlib_data, &mode);
+
+	ret = smoldrm_dumbbuffer_simple(card, &mode, &buffer0);
 	if (ret) {
-		printf("Buffer setup failed\n");
+		printf("Buffer0 setup failed\n");
 		return 1;
 	}
 
-
-	current_buffer = &buffer;
-	init_small3dlib(&s3dlib_data, &mode);
+	ret = smoldrm_dumbbuffer_simple(card, &mode, &buffer1);
+	if (ret) {
+		printf("Buffer1 setup failed\n");
+		return 1;
+	}
 
 	printf("crtcid 0x%08x\n", (unsigned int) crtc_id);
 
-	ret = smoldrm_attachdumbbuffertocrtc(&buffer, conn_id, crtc_id, &mode);
+	ret = smoldrm_attachdumbbuffertocrtc(&buffer0, conn_id, crtc_id, &mode);
 	if (ret) {
 		printf("Failed to attach\n");
 		return 1;
 	}
 
 	while (1) {
-		memset(buffer.mapped, 0xff, SMOLDRM_DUMBBUFFER_SZ(&buffer));
+		static int b = 0;
+
+		struct smoldrm_dumbbuffer *buffer = buffers[i & 1];
+
+		current_buffer = buffer;
+
+		memset(buffer->mapped, 0xff, SMOLDRM_DUMBBUFFER_SZ(buffer));
 		draw_frame(&s3dlib_data);
-		msleep(1);
+
+		smoldrm_waitforvblank(card);
+		smoldrm_pageflip(card, crtc_id, buffer->fbid);
+		b++;
 	}
 
 	//getchar();
