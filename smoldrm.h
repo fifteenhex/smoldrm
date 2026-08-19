@@ -272,6 +272,8 @@ static int smoldrm_rmfbdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 	int ret;
 
 	ret = ioctl(buffer->card, DRM_IOCTL_MODE_RMFB, &buffer->fbid);
+
+	return ret;
 }
 
 static void smoldrm_cleanupdumbbuffer(struct smoldrm_dumbbuffer *buffer)
@@ -311,6 +313,23 @@ static int smoldrm_createdumbbuffer(int card,
 	return 0;
 }
 
+static uint32_t smoldrm_depthforbpp(uint8_t bpp)
+{
+	switch (bpp) {
+	/* C8 */
+	case 8:
+		return 8;
+	/* RGB565 */
+	case 16:
+		return 16;
+	/* XRGB8888 */
+	case 32:
+		return 24;
+	default:
+		return 0;
+	}
+}
+
 static int smoldrm_addfbdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 {
 	struct drm_mode_fb_cmd fbcmd = {
@@ -318,10 +337,13 @@ static int smoldrm_addfbdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 		.height = buffer->dmcb.height,
 		.pitch  = buffer->dmcb.pitch,
 		.bpp    = buffer->dmcb.bpp,
-		.depth  = 24, /* FIXME ! */
+		.depth  = smoldrm_depthforbpp(buffer->dmcb.bpp),
 		.handle = buffer->dmcb.handle,
 	};
 	int ret;
+
+	if (!fbcmd.depth)
+		return -EINVAL;
 
 	ret = ioctl(buffer->card, DRM_IOCTL_MODE_ADDFB, &fbcmd);
 	if (ret)
@@ -382,9 +404,10 @@ static int smoldrm_attachdumbbuffertocrtc(struct smoldrm_dumbbuffer *buffer,
 	return 0;
 }
 
-static int smoldrm_dumbbuffer_simple(int card,
-				     struct drm_mode_modeinfo *modeinfo,
-				     struct smoldrm_dumbbuffer *buffer)
+static int smoldrm_dumbbuffer_bpp(int card,
+				  struct drm_mode_modeinfo *modeinfo,
+				  uint8_t bpp,
+				  struct smoldrm_dumbbuffer *buffer)
 {
 	uint16_t width, height;
 	int ret;
@@ -392,10 +415,10 @@ static int smoldrm_dumbbuffer_simple(int card,
 	width = modeinfo->hdisplay;
 	height = modeinfo->vdisplay;
 
-	printf("Creating %d x %d buffer, framebuffer and mapping it\n",
-	       width, height);
+	printf("Creating %d x %d %d bpp buffer, framebuffer and mapping it\n",
+	       width, height, bpp);
 
-	ret = smoldrm_createdumbbuffer(card, width, height, 32, buffer);
+	ret = smoldrm_createdumbbuffer(card, width, height, bpp, buffer);
 	if (ret) {
 		printf("Failed to create buffer: %d %d\n", ret, errno);
 		return ret;
@@ -416,7 +439,31 @@ static int smoldrm_dumbbuffer_simple(int card,
 	return 0;
 }
 
+static int smoldrm_dumbbuffer_simple(int card,
+				     struct drm_mode_modeinfo *modeinfo,
+				     struct smoldrm_dumbbuffer *buffer)
+{
+	return smoldrm_dumbbuffer_bpp(card, modeinfo, 32, buffer);
+}
+
+static int smoldrm_dumbbuffer_c8(int card,
+				 struct drm_mode_modeinfo *modeinfo,
+				 struct smoldrm_dumbbuffer *buffer)
+{
+	return smoldrm_dumbbuffer_bpp(card, modeinfo, 8, buffer);
+}
+
 /* CRTC stuff */
+
+static int smoldrm_getcrtc(int card, uint32_t crtc_id, struct drm_mode_crtc *crtc)
+{
+	int ret;
+
+	crtc->crtc_id = crtc_id;
+	ret = ioctl(card, DRM_IOCTL_MODE_GETCRTC, crtc);
+
+	return ret;
+}
 
 static int smoldrm_getcrtcforencoder(int card,
 				     struct drm_mode_card_res *res,
@@ -440,6 +487,78 @@ static int smoldrm_getcrtcforencoder(int card,
 	}
 
 	return 0;
+}
+
+/* CLUT stuff for C8, maybe C4 etc later */
+
+#define SMOLDRM_CLUT_SIZE 256
+
+#define SMOLDRM_CLUT_EXPAND8(_v) ((uint16_t) ((_v) * 0x0101u))
+#define SMOLDRM_CLUT_NARROW16(_v) ((uint8_t) ((_v) >> 8))
+
+struct smoldrm_clut {
+	uint16_t red[SMOLDRM_CLUT_SIZE];
+	uint16_t green[SMOLDRM_CLUT_SIZE];
+	uint16_t blue[SMOLDRM_CLUT_SIZE];
+};
+
+static int smoldrm_getgammasize(int card, uint32_t crtc_id, uint32_t *size)
+{
+	struct drm_mode_crtc crtc = { 0 };
+	int ret;
+
+	ret = smoldrm_getcrtc(card, crtc_id, &crtc);
+	if (ret)
+		return ret;
+
+	*size = crtc.gamma_size;
+
+	return 0;
+}
+
+static void smoldrm_clut_setentry(struct smoldrm_clut *clut,
+				  uint8_t index,
+				  uint8_t r, uint8_t g, uint8_t b)
+{
+	clut->red[index]   = SMOLDRM_CLUT_EXPAND8(r);
+	clut->green[index] = SMOLDRM_CLUT_EXPAND8(g);
+	clut->blue[index]  = SMOLDRM_CLUT_EXPAND8(b);
+}
+
+static void smoldrm_clut_getentry(struct smoldrm_clut *clut,
+				  uint8_t index,
+				  uint8_t *r, uint8_t *g, uint8_t *b)
+{
+	*r = SMOLDRM_CLUT_NARROW16(clut->red[index]);
+	*g = SMOLDRM_CLUT_NARROW16(clut->green[index]);
+	*b = SMOLDRM_CLUT_NARROW16(clut->blue[index]);
+}
+
+static int smoldrm_setclut(int card, uint32_t crtc_id, struct smoldrm_clut *clut)
+{
+	struct drm_mode_crtc_lut lut = {
+		.crtc_id = crtc_id,
+		.gamma_size = SMOLDRM_CLUT_SIZE,
+		.red = SMOLDRM_CAST_TO_DRM_PTR(clut->red),
+		.green = SMOLDRM_CAST_TO_DRM_PTR(clut->green),
+		.blue = SMOLDRM_CAST_TO_DRM_PTR(clut->blue),
+	};
+	uint32_t gamma_size;
+	int ret;
+
+	ret = smoldrm_getgammasize(card, crtc_id, &gamma_size);
+	if (ret)
+		return ret;
+
+	if (gamma_size != SMOLDRM_CLUT_SIZE) {
+		printf("crtc 0x%08x has a %d entry gamma table, need %d\n",
+		       (unsigned) crtc_id, gamma_size, SMOLDRM_CLUT_SIZE);
+		return -EINVAL;
+	}
+
+	ret = ioctl(card, DRM_IOCTL_MODE_SETGAMMA, &lut);
+
+	return ret;
 }
 
 /* Sync stuff */
