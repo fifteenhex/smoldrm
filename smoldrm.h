@@ -7,6 +7,8 @@
 
 #define SMOLDRM_ARRAYSZ(_a) (sizeof(_a) / sizeof(_a[0]))
 
+#define SMOLDRM_DIRTYFB_MAXCLIPS DRM_MODE_FB_DIRTY_MAX_CLIPS
+
 #define SMOLDRM_CAST_FROM_DRM_PTR(_p) ((void *)((uintptr_t) _p))
 #define SMOLDRM_CAST_TO_DRM_PTR(_p) ((uint64_t) _p)
 #define SMOLDRM_U32_AT_INDEX(_list, _index) (((uint32_t *) SMOLDRM_CAST_FROM_DRM_PTR(_list))[_index])
@@ -585,6 +587,24 @@ static int smoldrm_pageflip(int card, uint32_t crtc_id, uint32_t fb_id)
 	int ret;
 
 	ret = ioctl(card, DRM_IOCTL_MODE_PAGE_FLIP, &pageflip);
+
+	return ret;
+}
+
+/*
+ * At most SMOLDRM_DIRTYFB_MAXCLIPS rectangles. -ENOSYS if not supported.
+ */
+static int smoldrm_dirtyfb(int card, uint32_t fb_id,
+			   const struct drm_clip_rect *clips, uint32_t nclips)
+{
+	struct drm_mode_fb_dirty_cmd dirty = {
+		.fb_id = fb_id,
+		.num_clips = nclips,
+		.clips_ptr = SMOLDRM_CAST_TO_DRM_PTR(clips),
+	};
+	int ret;
+
+	ret = ioctl(card, DRM_IOCTL_MODE_DIRTYFB, &dirty);
 
 	return ret;
 }
