@@ -37,7 +37,7 @@
 #define smoldrm_foreach_conn_mode(__index, __conn, __val) \
 		smoldrm_foreach_modeinfo(__index, (__conn)->modes_ptr, (__conn)->count_modes, __val)
 
-static int smoldrm_open(const char *card)
+static inline int smoldrm_open(const char *card)
 {
 	int fd, ret;
 
@@ -57,7 +57,7 @@ static int smoldrm_open(const char *card)
 	return fd;
 }
 
-static int smoldrm_close(int card)
+static inline int smoldrm_close(int card)
 {
 	int ret;
 
@@ -67,7 +67,7 @@ static int smoldrm_close(int card)
 	return ret;
 }
 
-static void smoldrm_freeresources(struct drm_mode_card_res *res)
+static inline void smoldrm_freeresources(struct drm_mode_card_res *res)
 {
 	free(SMOLDRM_CAST_FROM_DRM_PTR(res->connector_id_ptr));
 	free(SMOLDRM_CAST_FROM_DRM_PTR(res->crtc_id_ptr));
@@ -75,7 +75,7 @@ static void smoldrm_freeresources(struct drm_mode_card_res *res)
 	free(SMOLDRM_CAST_FROM_DRM_PTR(res->fb_id_ptr));
 }
 
-static void smoldrm_cleanupresources(struct drm_mode_card_res *res)
+static inline void smoldrm_cleanupresources(struct drm_mode_card_res *res)
 {
 	if (res)
 		smoldrm_freeresources(res);
@@ -83,7 +83,7 @@ static void smoldrm_cleanupresources(struct drm_mode_card_res *res)
 
 #define __smoldrm_cleanup_resources __attribute__((cleanup(smoldrm_cleanupresources)))
 
-static int smoldrm_getresources(int card, struct drm_mode_card_res *res)
+static inline int smoldrm_getresources(int card, struct drm_mode_card_res *res)
 {
 	uint32_t num_connector;
 	uint32_t num_encoder;
@@ -139,7 +139,7 @@ static int smoldrm_getresources(int card, struct drm_mode_card_res *res)
 
 /* Connector stuff */
 
-static void smoldrm_freeconnector(struct drm_mode_get_connector *conn)
+static inline void smoldrm_freeconnector(struct drm_mode_get_connector *conn)
 {
 	free(SMOLDRM_CAST_FROM_DRM_PTR(conn->modes_ptr));
 	free(SMOLDRM_CAST_FROM_DRM_PTR(conn->props_ptr));
@@ -147,7 +147,7 @@ static void smoldrm_freeconnector(struct drm_mode_get_connector *conn)
 	free(SMOLDRM_CAST_FROM_DRM_PTR(conn->encoders_ptr));
 }
 
-static void smoldrm_cleanupconnector(struct drm_mode_get_connector *conn)
+static inline void smoldrm_cleanupconnector(struct drm_mode_get_connector *conn)
 {
 	if (conn)
 		smoldrm_freeconnector(conn);
@@ -155,7 +155,7 @@ static void smoldrm_cleanupconnector(struct drm_mode_get_connector *conn)
 
 #define __smoldrm_cleanup_connector __attribute__((cleanup(smoldrm_cleanupconnector)))
 
-static int smoldrm_getconnector(int card,
+static inline int smoldrm_getconnector(int card,
 				uint32_t conn_id,
 				struct drm_mode_get_connector *conn)
 {
@@ -202,7 +202,7 @@ static int smoldrm_getconnector(int card,
 	return 0;
 }
 
-static bool smoldrm_connectorisusable(struct drm_mode_get_connector *conn)
+static inline bool smoldrm_connectorisusable(struct drm_mode_get_connector *conn)
 {
 	if (conn->connection && conn->count_modes)
 		return true;
@@ -212,7 +212,7 @@ static bool smoldrm_connectorisusable(struct drm_mode_get_connector *conn)
 
 /* Encoder stuff */
 
-static int smoldrm_getencoder(int card, uint32_t encoder_id, struct drm_mode_get_encoder *encoder)
+static inline int smoldrm_getencoder(int card, uint32_t encoder_id, struct drm_mode_get_encoder *encoder)
 {
 	int ret;
 
@@ -222,7 +222,7 @@ static int smoldrm_getencoder(int card, uint32_t encoder_id, struct drm_mode_get
 	return ret;
 }
 
-static bool smoldrm_iscrtcpossibleforencoder(struct drm_mode_get_encoder *encoder,
+static inline bool smoldrm_iscrtcpossibleforencoder(struct drm_mode_get_encoder *encoder,
 					     unsigned int crtc_index)
 {
 	if (encoder->possible_crtcs & (1u << crtc_index))
@@ -245,7 +245,7 @@ struct smoldrm_dumbbuffer {
 #define SMOLDRM_DUMBBUFFER_PITCH(_db) ((_db)->dmcb.pitch)
 #define SMOLDRM_DUMBBUFFER_STRIDE(_db) ((_db)->dmcb.bpp / 8)
 
-static int smoldrm_resetcrtc(int card, uint32_t crtc_id)
+static inline int smoldrm_resetcrtc(int card, uint32_t crtc_id)
 {
 	struct drm_mode_crtc crtc = {
 		.crtc_id = crtc_id,
@@ -257,7 +257,7 @@ static int smoldrm_resetcrtc(int card, uint32_t crtc_id)
 	return ret;
 }
 
-static int smoldrm_destroydumbbuffer(struct smoldrm_dumbbuffer *buffer)
+static inline int smoldrm_destroydumbbuffer(struct smoldrm_dumbbuffer *buffer)
 {
 	struct drm_mode_destroy_dumb destroydumb = {
 		.handle = buffer->dmcb.handle,
@@ -269,7 +269,7 @@ static int smoldrm_destroydumbbuffer(struct smoldrm_dumbbuffer *buffer)
 	return ret;
 }
 
-static int smoldrm_rmfbdumbbuffer(struct smoldrm_dumbbuffer *buffer)
+static inline int smoldrm_rmfbdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 {
 	int ret;
 
@@ -278,7 +278,7 @@ static int smoldrm_rmfbdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 	return ret;
 }
 
-static void smoldrm_cleanupdumbbuffer(struct smoldrm_dumbbuffer *buffer)
+static inline void smoldrm_cleanupdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 {
 	if (buffer->crtc_id)
 		smoldrm_resetcrtc(buffer->card, buffer->crtc_id);
@@ -294,7 +294,7 @@ static void smoldrm_cleanupdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 
 #define __smoldrm_cleanup_dumbbuffer __attribute__((cleanup(smoldrm_cleanupdumbbuffer)))
 
-static int smoldrm_createdumbbuffer(int card,
+static inline int smoldrm_createdumbbuffer(int card,
 				    uint16_t width,
 				    uint16_t height,
 				    uint8_t bpp,
@@ -315,7 +315,7 @@ static int smoldrm_createdumbbuffer(int card,
 	return 0;
 }
 
-static uint32_t smoldrm_depthforbpp(uint8_t bpp)
+static inline uint32_t smoldrm_depthforbpp(uint8_t bpp)
 {
 	switch (bpp) {
 	/* C8 */
@@ -332,7 +332,7 @@ static uint32_t smoldrm_depthforbpp(uint8_t bpp)
 	}
 }
 
-static int smoldrm_addfbdumbbuffer(struct smoldrm_dumbbuffer *buffer)
+static inline int smoldrm_addfbdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 {
 	struct drm_mode_fb_cmd fbcmd = {
 		.width  = buffer->dmcb.width,
@@ -356,7 +356,7 @@ static int smoldrm_addfbdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 	return 0;
 }
 
-static int smoldrm_mmapdumbbuffer(struct smoldrm_dumbbuffer *buffer)
+static inline int smoldrm_mmapdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 {
 	struct drm_mode_map_dumb mapdumb = {
 		.handle = buffer->dmcb.handle,
@@ -380,7 +380,7 @@ static int smoldrm_mmapdumbbuffer(struct smoldrm_dumbbuffer *buffer)
 	return 0;
 }
 
-static int smoldrm_attachdumbbuffertocrtc(struct smoldrm_dumbbuffer *buffer,
+static inline int smoldrm_attachdumbbuffertocrtc(struct smoldrm_dumbbuffer *buffer,
 					  uint32_t conn_id,
 					  uint32_t crtc_id,
 					  struct drm_mode_modeinfo *mode)
@@ -406,7 +406,7 @@ static int smoldrm_attachdumbbuffertocrtc(struct smoldrm_dumbbuffer *buffer,
 	return 0;
 }
 
-static int smoldrm_dumbbuffer_bpp(int card,
+static inline int smoldrm_dumbbuffer_bpp(int card,
 				  struct drm_mode_modeinfo *modeinfo,
 				  uint8_t bpp,
 				  struct smoldrm_dumbbuffer *buffer)
@@ -441,14 +441,14 @@ static int smoldrm_dumbbuffer_bpp(int card,
 	return 0;
 }
 
-static int smoldrm_dumbbuffer_simple(int card,
+static inline int smoldrm_dumbbuffer_simple(int card,
 				     struct drm_mode_modeinfo *modeinfo,
 				     struct smoldrm_dumbbuffer *buffer)
 {
 	return smoldrm_dumbbuffer_bpp(card, modeinfo, 32, buffer);
 }
 
-static int smoldrm_dumbbuffer_c8(int card,
+static inline int smoldrm_dumbbuffer_c8(int card,
 				 struct drm_mode_modeinfo *modeinfo,
 				 struct smoldrm_dumbbuffer *buffer)
 {
@@ -457,7 +457,7 @@ static int smoldrm_dumbbuffer_c8(int card,
 
 /* CRTC stuff */
 
-static int smoldrm_getcrtc(int card, uint32_t crtc_id, struct drm_mode_crtc *crtc)
+static inline int smoldrm_getcrtc(int card, uint32_t crtc_id, struct drm_mode_crtc *crtc)
 {
 	int ret;
 
@@ -504,7 +504,7 @@ struct smoldrm_clut {
 	uint16_t blue[SMOLDRM_CLUT_SIZE];
 };
 
-static int smoldrm_getgammasize(int card, uint32_t crtc_id, uint32_t *size)
+static inline int smoldrm_getgammasize(int card, uint32_t crtc_id, uint32_t *size)
 {
 	struct drm_mode_crtc crtc = { 0 };
 	int ret;
@@ -518,7 +518,7 @@ static int smoldrm_getgammasize(int card, uint32_t crtc_id, uint32_t *size)
 	return 0;
 }
 
-static void smoldrm_clut_setentry(struct smoldrm_clut *clut,
+static inline void smoldrm_clut_setentry(struct smoldrm_clut *clut,
 				  uint8_t index,
 				  uint8_t r, uint8_t g, uint8_t b)
 {
@@ -527,7 +527,7 @@ static void smoldrm_clut_setentry(struct smoldrm_clut *clut,
 	clut->blue[index]  = SMOLDRM_CLUT_EXPAND8(b);
 }
 
-static void smoldrm_clut_getentry(struct smoldrm_clut *clut,
+static inline void smoldrm_clut_getentry(struct smoldrm_clut *clut,
 				  uint8_t index,
 				  uint8_t *r, uint8_t *g, uint8_t *b)
 {
@@ -536,7 +536,7 @@ static void smoldrm_clut_getentry(struct smoldrm_clut *clut,
 	*b = SMOLDRM_CLUT_NARROW16(clut->blue[index]);
 }
 
-static int smoldrm_setclut(int card, uint32_t crtc_id, struct smoldrm_clut *clut)
+static inline int smoldrm_setclut(int card, uint32_t crtc_id, struct smoldrm_clut *clut)
 {
 	struct drm_mode_crtc_lut lut = {
 		.crtc_id = crtc_id,
@@ -565,7 +565,7 @@ static int smoldrm_setclut(int card, uint32_t crtc_id, struct smoldrm_clut *clut
 
 /* Sync stuff */
 
-static int smoldrm_waitforvblank(int card)
+static inline int smoldrm_waitforvblank(int card)
 {
 	union drm_wait_vblank vblank = {
 		.request.type = _DRM_VBLANK_RELATIVE,
@@ -578,7 +578,7 @@ static int smoldrm_waitforvblank(int card)
 	return ret;
 }
 
-static int smoldrm_pageflip(int card, uint32_t crtc_id, uint32_t fb_id)
+static inline int smoldrm_pageflip(int card, uint32_t crtc_id, uint32_t fb_id)
 {
 	struct drm_mode_crtc_page_flip pageflip = {
 		.crtc_id = crtc_id,
@@ -594,7 +594,7 @@ static int smoldrm_pageflip(int card, uint32_t crtc_id, uint32_t fb_id)
 /*
  * At most SMOLDRM_DIRTYFB_MAXCLIPS rectangles. -ENOSYS if not supported.
  */
-static int smoldrm_dirtyfb(int card, uint32_t fb_id,
+static inline int smoldrm_dirtyfb(int card, uint32_t fb_id,
 			   const struct drm_clip_rect *clips, uint32_t nclips)
 {
 	struct drm_mode_fb_dirty_cmd dirty = {
