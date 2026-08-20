@@ -467,14 +467,15 @@ static inline int smoldrm_getcrtc(int card, uint32_t crtc_id, struct drm_mode_cr
 	return ret;
 }
 
-static int smoldrm_getcrtcforencoder(int card,
+static inline int smoldrm_getcrtcforencoder(int card,
 				     struct drm_mode_card_res *res,
 				     uint32_t encoder_id,
 				     uint32_t *crtc_id)
 {
 	struct drm_mode_get_encoder encoder = { 0 };
 	uint32_t _crtc_id;
-	int ret, i;
+	unsigned int i;
+	int ret;
 
 	ret = smoldrm_getencoder(card, encoder_id, &encoder);
 	if (ret)
