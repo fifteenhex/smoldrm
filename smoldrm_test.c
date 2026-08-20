@@ -72,8 +72,8 @@ int main(int argc, char **argv, char **envp)
 	struct drm_mode_card_res __smoldrm_cleanup_resources res = { 0 };
 	int card;
 	int ret;
-	uint32_t conn_id, encoder_id, crtc_id;
-	int i, j, k;
+	uint32_t conn_id = 0, encoder_id, crtc_id = 0;
+	unsigned int i, j;
 	bool goteverything = false;
 	struct drm_mode_modeinfo mode = { };
 	struct small3dlib_data s3dlib_data = { };
