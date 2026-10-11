@@ -4,6 +4,7 @@
 #define _SMOLDRM_H
 
 #include <drm/drm.h>
+#include <drm/drm_fourcc.h>
 
 #define SMOLDRM_ARRAYSZ(_a) (sizeof(_a) / sizeof(_a[0]))
 
@@ -759,6 +760,34 @@ static inline int smoldrm_addfb2dumbbuffer(struct smoldrm_dumbbuffer *buffer,
 	buffer->fbid = fbcmd.fb_id;
 
 	return 0;
+}
+
+#define SMOLDRM_NV12_LUMA(_db) ((uint8_t *)(_db)->mapped)
+#define SMOLDRM_NV12_CHROMA(_db, _h) (SMOLDRM_NV12_LUMA(_db) + \
+				      SMOLDRM_DUMBBUFFER_PITCH(_db) * (_h))
+
+static inline int smoldrm_createnv12dumbbuffer(int card, uint32_t width,
+					       uint32_t height,
+					       struct smoldrm_dumbbuffer *buffer)
+{
+	uint32_t pitches[2];
+	uint32_t offsets[2];
+	int ret;
+
+	ret = smoldrm_createdumbbuffer(card, width, height + height / 2, 8, buffer);
+	if (ret)
+		return ret;
+
+	ret = smoldrm_mmapdumbbuffer(buffer);
+	if (ret)
+		return ret;
+
+	pitches[0] = pitches[1] = SMOLDRM_DUMBBUFFER_PITCH(buffer);
+	offsets[0] = 0;
+	offsets[1] = SMOLDRM_DUMBBUFFER_PITCH(buffer) * height;
+
+	return smoldrm_addfb2dumbbuffer(buffer, DRM_FORMAT_NV12, width, height,
+					pitches, offsets, 2);
 }
 
 /* Sync stuff */
