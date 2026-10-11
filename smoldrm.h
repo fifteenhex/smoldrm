@@ -667,6 +667,30 @@ static inline bool smoldrm_iscrtcpossibleforplane(const struct smoldrm_plane *pl
 	return !!(plane->gp.possible_crtcs & (1u << crtc_index));
 }
 
+/* Find a plane for the desired format on the desired crtc */
+static inline int smoldrm_findplaneforformat(int card,
+					     struct drm_mode_get_plane_res *pres,
+					     uint32_t fourcc,
+					     unsigned int crtc_index,
+					     struct smoldrm_plane *plane)
+{
+	uint32_t id;
+	uint32_t i;
+
+	smoldrm_foreach_planeres_plane(i, pres, id) {
+		if (smoldrm_getplane(card, id, plane))
+			continue;
+		if (SMOLDRM_PLANE_FB(plane))
+			continue;
+		if (!smoldrm_iscrtcpossibleforplane(plane, crtc_index))
+			continue;
+		if (smoldrm_planesupportsformat(plane, fourcc))
+			return 0;
+	}
+
+	return -ENODEV;
+}
+
 /* Sync stuff */
 
 static inline int smoldrm_waitforvblank(int card)
