@@ -564,6 +564,22 @@ static inline int smoldrm_setclut(int card, uint32_t crtc_id, struct smoldrm_clu
 	return ret;
 }
 
+/* So you can ask for universal planes and get access to overlay planes ... */
+static inline int smoldrm_setclientcap(int card, uint64_t capability, uint64_t value)
+{
+	struct drm_set_client_cap cap = {
+		.capability = capability,
+		.value = value,
+	};
+
+	return ioctl(card, DRM_IOCTL_SET_CLIENT_CAP, &cap);
+}
+
+static inline int smoldrm_setmaster(int card)
+{
+	return ioctl(card, DRM_IOCTL_SET_MASTER, 0);
+}
+
 /* Sync stuff */
 
 static inline int smoldrm_waitforvblank(int card)
