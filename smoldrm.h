@@ -691,6 +691,37 @@ static inline int smoldrm_findplaneforformat(int card,
 	return -ENODEV;
 }
 
+#define SMOLDRM_TOFIXEDPOINT16(_int, _fract) (_int << 16 | _fract)
+
+static inline int smoldrm_setplane(int card, uint32_t plane_id, uint32_t crtc_id,
+				   uint32_t fb_id, int32_t crtc_x, int32_t crtc_y,
+				   uint32_t crtc_w, uint32_t crtc_h,
+				   uint32_t src_w, uint32_t src_h)
+{
+	struct drm_mode_set_plane sp = {
+		.plane_id = plane_id,
+		.crtc_id = crtc_id,
+		.fb_id = fb_id,
+		.crtc_x = crtc_x,
+		.crtc_y = crtc_y,
+		.crtc_w = crtc_w,
+		.crtc_h = crtc_h,
+		.src_w = SMOLDRM_TOFIXEDPOINT16(src_w, 0),
+		.src_h = SMOLDRM_TOFIXEDPOINT16(src_h, 0),
+	};
+
+	return ioctl(card, DRM_IOCTL_MODE_SETPLANE, &sp);
+}
+
+static inline int smoldrm_disableplane(int card, uint32_t plane_id)
+{
+	struct drm_mode_set_plane sp = {
+		.plane_id = plane_id,
+	};
+
+	return ioctl(card, DRM_IOCTL_MODE_SETPLANE, &sp);
+}
+
 /* Sync stuff */
 
 static inline int smoldrm_waitforvblank(int card)
