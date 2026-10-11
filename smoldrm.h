@@ -580,6 +580,44 @@ static inline int smoldrm_setmaster(int card)
 	return ioctl(card, DRM_IOCTL_SET_MASTER, 0);
 }
 
+static inline void smoldrm_freeplaneresources(struct drm_mode_get_plane_res *pres)
+{
+	free(SMOLDRM_CAST_FROM_DRM_PTR(pres->plane_id_ptr));
+}
+
+static inline void smoldrm_cleanupplaneresources(struct drm_mode_get_plane_res *pres)
+{
+	if (pres)
+		smoldrm_freeplaneresources(pres);
+}
+
+#define __smoldrm_cleanup_planeresources __attribute__((cleanup(smoldrm_cleanupplaneresources)))
+
+#define smoldrm_foreach_planeres_plane(__index, __pres, __val) \
+	smoldrm_foreach_u32(__index, (__pres)->plane_id_ptr, (__pres)->count_planes, __val)
+
+static inline int smoldrm_getplaneresources(int card, struct drm_mode_get_plane_res *pres)
+{
+	int ret;
+
+	ret = ioctl(card, DRM_IOCTL_MODE_GETPLANERESOURCES, pres);
+	if (ret)
+		return ret;
+
+	pres->plane_id_ptr =
+		SMOLDRM_CAST_TO_DRM_PTR(calloc(pres->count_planes, sizeof(uint32_t)));
+	if (!pres->plane_id_ptr)
+		return -ENOMEM;
+
+	ret = ioctl(card, DRM_IOCTL_MODE_GETPLANERESOURCES, pres);
+	if (ret) {
+		smoldrm_freeplaneresources(pres);
+		return ret;
+	}
+
+	return 0;
+}
+
 /* Sync stuff */
 
 static inline int smoldrm_waitforvblank(int card)
