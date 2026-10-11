@@ -618,6 +618,33 @@ static inline int smoldrm_getplaneresources(int card, struct drm_mode_get_plane_
 	return 0;
 }
 
+#define SMOLDRM_PLANE_MAXFORMATS 32
+
+struct smoldrm_plane {
+	struct drm_mode_get_plane gp;
+	uint32_t formats[SMOLDRM_PLANE_MAXFORMATS];
+};
+
+#define SMOLDRM_PLANE_ID(_p) ((_p)->gp.plane_id)
+#define SMOLDRM_PLANE_CRTC(_p) ((_p)->gp.crtc_id)
+#define SMOLDRM_PLANE_FB(_p) ((_p)->gp.fb_id)
+
+static inline int smoldrm_getplane(int card, uint32_t plane_id,
+				   struct smoldrm_plane *plane)
+{
+	int ret;
+
+	memset(plane, 0, sizeof(*plane));
+
+	plane->gp.plane_id = plane_id;
+	plane->gp.format_type_ptr = SMOLDRM_CAST_TO_DRM_PTR(plane->formats);
+	plane->gp.count_format_types = SMOLDRM_ARRAYSZ(plane->formats);
+
+	ret = ioctl(card, DRM_IOCTL_MODE_GETPLANE, &plane->gp);
+
+	return ret;
+}
+
 /* Sync stuff */
 
 static inline int smoldrm_waitforvblank(int card)
