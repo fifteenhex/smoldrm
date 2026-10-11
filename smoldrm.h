@@ -645,6 +645,28 @@ static inline int smoldrm_getplane(int card, uint32_t plane_id,
 	return ret;
 }
 
+static inline bool smoldrm_planesupportsformat(const struct smoldrm_plane *plane,
+					       uint32_t fourcc)
+{
+	uint32_t n = plane->gp.count_format_types;
+	uint32_t i;
+
+	if (n > SMOLDRM_ARRAYSZ(plane->formats))
+		n = SMOLDRM_ARRAYSZ(plane->formats);
+
+	for (i = 0; i < n; i++)
+		if (plane->formats[i] == fourcc)
+			return true;
+
+	return false;
+}
+
+static inline bool smoldrm_iscrtcpossibleforplane(const struct smoldrm_plane *plane,
+						  unsigned int crtc_index)
+{
+	return !!(plane->gp.possible_crtcs & (1u << crtc_index));
+}
+
 /* Sync stuff */
 
 static inline int smoldrm_waitforvblank(int card)
