@@ -722,6 +722,45 @@ static inline int smoldrm_disableplane(int card, uint32_t plane_id)
 	return ioctl(card, DRM_IOCTL_MODE_SETPLANE, &sp);
 }
 
+/*
+ * This is mainly for planar formats.
+ * For a planar buffer you allocate a linear buffer than can hold
+ * all of the planes and then provide the offsets of the planes
+ * in the buffer.
+ */
+static inline int smoldrm_addfb2dumbbuffer(struct smoldrm_dumbbuffer *buffer,
+					   uint32_t fourcc,
+					   uint32_t width, uint32_t height,
+					   const uint32_t *pitches,
+					   const uint32_t *offsets,
+					   unsigned int nplanes)
+{
+	struct drm_mode_fb_cmd2 fbcmd = {
+		.width = width,
+		.height = height,
+		.pixel_format = fourcc,
+	};
+	unsigned int i;
+	int ret;
+
+	if (!nplanes || nplanes > 4)
+		return -EINVAL;
+
+	for (i = 0; i < nplanes; i++) {
+		fbcmd.handles[i] = buffer->dmcb.handle;
+		fbcmd.pitches[i] = pitches[i];
+		fbcmd.offsets[i] = offsets[i];
+	}
+
+	ret = ioctl(buffer->card, DRM_IOCTL_MODE_ADDFB2, &fbcmd);
+	if (ret)
+		return ret;
+
+	buffer->fbid = fbcmd.fb_id;
+
+	return 0;
+}
+
 /* Sync stuff */
 
 static inline int smoldrm_waitforvblank(int card)
